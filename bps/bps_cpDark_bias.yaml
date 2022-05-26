@@ -1,0 +1,24 @@
+includeConfigs:
+  - ${GEN3_WORKFLOW_DIR}/python/desc/gen3_workflow/etc/bps_drp_baseline.yaml
+  - ${HOME}/BOT_gen3_testing/bps_cp_pipe_resource_info.yaml
+
+operator: jchiang
+pipelineYaml: "${HOME}/Bias_modeling_tests/baseline_tests/pipelines/cpDark.yaml#isr"
+instrument: lsst.obs.lsst.LsstCam
+
+payload:
+  inCollection: u/jchiang/bias_13162_median_per_row
+  payloadName: bias_dark_isr_13162_median_per_row
+  butlerConfig: /sdf/group/lsst/camera/IandT/repo_gen3/BOT_data
+  dataQuery: "instrument='LSSTCam' and exposure.science_program='13162' and exposure.observation_type='bias' and detector=94"
+
+parsl_config:
+  retries: 1
+  monitoring: true
+  checkpoint: false
+  log_level: logging.WARNING
+  executor: ThreadPool
+  max_threads: 8
+#  executor: WorkQueue
+#  provider: Local
+#  worker_options: "--memory=32000"
