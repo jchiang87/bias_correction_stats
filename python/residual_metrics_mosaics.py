@@ -18,12 +18,12 @@ CHANNELS = {amp: channel for amp, channel in
                          C07 C06 C05 C04 C03 C02 C01 C00'''.split(), 1)}
 
 
-def extract_amp_metric(stat_data_dir):
+def extract_amp_metric(stat_data_dir, suffix='.pickle'):
     amp_data = defaultdict(dict)
     for detector, det in enumerate(CAMERA):
         det_name = det.getName()
         stat_file = glob.glob(os.path.join(stat_data_dir,
-                                           f'{det_name}_*.pickle'))[0]
+                                           f'{det_name}_*' + suffix))[0]
         df0 = pd.read_pickle(stat_file).query('tseqnum > 19')
         amps = sorted(list(set(df0['amp'])))
         for amp in amps:

@@ -4,10 +4,27 @@ from functools import reduce
 import warnings
 import matplotlib.pyplot as plt
 import pandas as pd
+from lsst.afw.cameraGeom import ReadoutCorner
 import lsst.afw.math as afw_math
+import lsst.geom
 
 
 __all__ = ['compute_cpBias_stats', 'compute_eotest_stats', 'plot_amp_stats']
+
+
+def output_corner_bbox(amp, dx=200, dy=200):
+    bbox = amp.getBBox()
+    if amp.getReadoutCorner() == ReadoutCorner.LL:
+        xmin, xmax = bbox.minX, bbox.minX + dx
+        ymin, ymax = bbox.minY, bbox.minY + dy
+    elif amp.getReadoutCorner() == ReadoutCorner.LR:
+        xmin, xmax = bbox.maxX - dx, bbox.maxX
+        ymin, ymax = bbox.minY, bbox.minY + dy
+    elif amp.getReadoutCorner() == ReadoutCorner.UR:
+        xmin, xmax = bbox.maxX - dx, bbox.maxX
+        ymin, ymax = bbox.maxY - dy, bbox.maxY
+    return lsst.geom.Box2I(lsst.geom.Point2I(xmin, ymin),
+                           lsst.geom.Point2I(xmax, ymax))
 
 
 def amp_stats(data, amp, amp_image, md):
@@ -22,14 +39,19 @@ def amp_stats(data, amp, amp_image, md):
     return data
 
 
-def compute_cpBias_stats(butler, dsrefs, det, outfile=None):
+def compute_cpBias_stats(butler, dsrefs, outfile=None, output_corner=False):
     data = defaultdict(list)
     for dsref in dsrefs:
         exposure = butler.get(dsref)
+        det = exposure.getDetector()
         image = exposure.getImage()
         md = exposure.getMetadata()
         for amp, amp_info in enumerate(det, 1):
-            amp_image = image.Factory(image, amp_info.getBBox())
+            if output_corner:
+                bbox = output_corner_bbox(amp_info)
+            else:
+                bbox = amp_info.getBBox()
+            amp_image = image.Factory(image, bbox)
             data = amp_stats(data, amp, amp_image, md)
     df = pd.DataFrame(data=data)
     if outfile is not None:
@@ -37,16 +59,22 @@ def compute_cpBias_stats(butler, dsrefs, det, outfile=None):
     return df
 
 
-def compute_eotest_stats(fits_files, outfile=None):
+def compute_eotest_stats(fits_files, outfile=None, output_corner=False):
+    output_corner_bbox = lsst.geom.Box2I(lsst.geom.Point2I(0, 0),
+                                         lsst.geom.Point2I(200, 200))
     with warnings.catch_warnings():
         warnings.simplefilter('ignore')
         import lsst.eotest.sensor as sensorTest
     data = defaultdict(list)
     for item in fits_files:
         ccd = sensorTest.MaskedCCD(item)
+        if output_corner:
+            bbox = output_corner_bbox
+        else:
+            bbox = ccd.amp_geom.imaging
         for amp in ccd:
             image = ccd[amp].getImage()
-            amp_image = image.Factory(image, ccd.amp_geom.imaging)
+            amp_image = image.Factory(image, bbox)
             data = amp_stats(data, amp, amp_image, ccd.md)
     df = pd.DataFrame(data=data)
     if outfile is not None:
